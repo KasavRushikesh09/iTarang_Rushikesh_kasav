@@ -2,9 +2,9 @@ import React from "react";
 import { LayoutWrapper } from "@/components/layout/LayoutWrapper";
 
 export default function DashboardLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return <LayoutWrapper>{children}</LayoutWrapper>;
+  return <LayoutWrapper>{children}</LayoutWrapper>;
 }

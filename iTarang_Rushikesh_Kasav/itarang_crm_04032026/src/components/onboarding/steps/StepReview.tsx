@@ -28,6 +28,7 @@ export default function StepReview() {
   const setField = useOnboardingStore((s) => s.setField);
   const errors = useOnboardingStore((s) => s.errors);
   const setErrors = useOnboardingStore((s) => s.setErrors);
+  const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
 
   const handleSubmitApplication = () => {
     const submitErrors: Record<string, string> = {};
@@ -48,6 +49,10 @@ export default function StepReview() {
       setErrors(submitErrors);
       return;
     }
+
+    const generatedDealerId = completeOnboarding();
+
+    console.log("Dealer onboarding completed with ID:", generatedDealerId);
 
     router.push("/dealer-portal");
   };

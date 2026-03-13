@@ -1,7 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { DealerOnboardingState, UploadFileItem } from "@/components/onboarding/onboardingTypes";
+import {
+  DealerOnboardingState,
+  UploadFileItem,
+} from "@/components/onboarding/onboardingTypes";
 import { validateStep } from "@/components/onboarding/onboardingSchemas";
 
 const makeUploadItem = (label: string): UploadFileItem => ({
@@ -13,34 +16,64 @@ const makeUploadItem = (label: string): UploadFileItem => ({
   progress: 0,
 });
 
+function generateDealerId() {
+  const now = new Date();
+
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const random = Math.floor(1000 + Math.random() * 9000);
+
+  return `ITD-${yyyy}${mm}${dd}-${random}`;
+}
+
 type StoreActions = {
   setStep: (step: number) => void;
   nextStep: () => boolean;
   prevStep: () => void;
-  setField: (section: keyof DealerOnboardingState, field: string, value: any) => void;
+  setField: (
+    section: keyof DealerOnboardingState,
+    field: string,
+    value: any
+  ) => void;
   setErrors: (errors: Record<string, string>) => void;
   clearError: (key: string) => void;
   saveDraft: () => void;
   setUpload: (path: string, fileItem: UploadFileItem) => void;
   addPartner: () => void;
-  updatePartner: (id: string, field: "name" | "phone" | "email", value: string) => void;
+  updatePartner: (
+    id: string,
+    field: "name" | "phone" | "email",
+    value: string
+  ) => void;
   removePartner: (id: string) => void;
   addDirector: () => void;
-  updateDirector: (id: string, field: "name" | "phone" | "email", value: string) => void;
+  updateDirector: (
+    id: string,
+    field: "name" | "phone" | "email",
+    value: string
+  ) => void;
   removeDirector: (id: string) => void;
+  completeOnboarding: () => string;
 };
 
 const initialState: DealerOnboardingState = {
   step: 1,
   status: "draft",
   lastSavedAt: null,
+  dealerId: "",
+  dealerDisplayName: "",
+
   company: {
     companyName: "",
     companyAddress: "",
     companyType: "",
     gstNumber: "",
     companyPanNumber: "",
+    gstCertificate: makeUploadItem("GST Certificate"),
+    companyPanFile: makeUploadItem("Company PAN"),
   },
+
   compliance: {
     itr3Years: makeUploadItem("Last 3 Years Company Income Tax Returns"),
     bankStatement3Months: makeUploadItem("Last 3 Months Company Bank Statement"),
@@ -48,6 +81,7 @@ const initialState: DealerOnboardingState = {
     passportPhoto: makeUploadItem("Passport Size Photograph"),
     udyamCertificate: makeUploadItem("Udyam Registration Certificate"),
   },
+
   ownership: {
     ownerName: "",
     ownerPhone: "",
@@ -62,6 +96,7 @@ const initialState: DealerOnboardingState = {
     ifsc: "",
     beneficiaryName: "",
   },
+
   finance: {
     enableFinance: "",
     financeContactPerson: "",
@@ -69,54 +104,58 @@ const initialState: DealerOnboardingState = {
     financeContactEmail: "",
     financeRemarks: "",
   },
+
   agreement: {
-  agreementName: "Dealer Finance Enablement Agreement",
-  templateSource: "iTarang approved template",
-  provider: "Signzy Contract 360",
-  agreementVersion: "v1.0",
-  generatedDate: "",
-  agreementStatus: "not_generated",
+    agreementName: "Dealer Finance Enablement Agreement",
+    templateSource: "iTarang approved template",
+    provider: "Signzy Contract 360",
+    agreementVersion: "v1.0",
+    generatedDate: "",
+    agreementStatus: "not_generated",
 
-  selectedTemplate: "Tarang Dealer Agreement Template",
-  dealerLegalEntityName: "",
-  authorizedSignatoryName: "",
-  authorizedSignatoryEmail: "",
-  authorizedSignatoryPhone: "",
-  stampDutyState: "",
+    selectedTemplate: "Tarang Dealer Agreement Template",
+    dealerLegalEntityName: "",
+    authorizedSignatoryName: "",
+    authorizedSignatoryEmail: "",
+    authorizedSignatoryPhone: "",
+    stampDutyState: "",
 
-  dealerSignerName: "",
-  dealerSignerEmail: "",
-  dealerSignerPhone: "",
-  dealerSigningMethod: "Aadhaar eSign",
+    dealerSignerName: "",
+    dealerSignerEmail: "",
+    dealerSignerPhone: "",
+    dealerSigningMethod: "Aadhaar eSign",
 
-  salesManagerName: "",
-  salesManagerEmail: "",
-  salesManagerPhone: "",
-  salesManagerSigningMethod: "OTP-based signing",
+    salesManagerName: "Amit Verma",
+    salesManagerEmail: "amit.verma@itarang.com",
+    salesManagerPhone: "9876543210",
+    salesManagerSigningMethod: "OTP-based signing",
 
-  businessHeadName: "",
-  businessHeadEmail: "",
-  businessHeadPhone: "",
-  businessHeadSigningMethod: "Digital signature workflow",
+    businessHeadName: "Sanjay Mehta",
+    businessHeadEmail: "sanjay.mehta@itarang.com",
+    businessHeadPhone: "9123456780",
+    businessHeadSigningMethod: "Digital signature workflow",
+    requestId: "",
+    lastActionTimestamp: "",
+    signedAt: "",
+    stampStatus: "Pending",
+    completionStatus: "Not Started",
 
-  requestId: "",
-  lastActionTimestamp: "",
-  signedAt: "",
-  stampStatus: "Pending",
-  completionStatus: "Not Started",
+    agreementTemplateFile: null,
+    signedAgreementFile: null,
+  },
 
-  agreementTemplateFile: null,
-  signedAgreementFile: null,
-},
   reviewChecks: {
     confirmInfo: false,
     confirmDocs: false,
     agreeTerms: false,
   },
+
   errors: {},
 };
 
-export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((set, get) => ({
+export const useOnboardingStore = create<
+  DealerOnboardingState & StoreActions
+>((set, get) => ({
   ...initialState,
 
   setStep: (step) => set({ step }),
@@ -124,6 +163,7 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
   nextStep: () => {
     const current = get();
     const errors = validateStep(current);
+
     if (Object.keys(errors).length > 0) {
       set({ errors });
       return false;
@@ -145,6 +185,7 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
       status: "in_progress",
       lastSavedAt: new Date().toISOString(),
     }));
+
     return true;
   },
 
@@ -185,7 +226,12 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
     set((state) => {
       const nextState: any = { ...state };
       const [section, field] = path.split(".");
-      nextState[section] = { ...nextState[section], [field]: fileItem };
+
+      nextState[section] = {
+        ...nextState[section],
+        [field]: fileItem,
+      };
+
       nextState.lastSavedAt = new Date().toISOString();
       return nextState;
     }),
@@ -196,7 +242,12 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
         ...state.ownership,
         partners: [
           ...state.ownership.partners,
-          { id: crypto.randomUUID(), name: "", phone: "", email: "" },
+          {
+            id: crypto.randomUUID(),
+            name: "",
+            phone: "",
+            email: "",
+          },
         ],
       },
     })),
@@ -215,7 +266,9 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
     set((state) => ({
       ownership: {
         ...state.ownership,
-        partners: state.ownership.partners.filter((partner) => partner.id !== id),
+        partners: state.ownership.partners.filter(
+          (partner) => partner.id !== id
+        ),
       },
     })),
 
@@ -225,7 +278,12 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
         ...state.ownership,
         directors: [
           ...state.ownership.directors,
-          { id: crypto.randomUUID(), name: "", phone: "", email: "" },
+          {
+            id: crypto.randomUUID(),
+            name: "",
+            phone: "",
+            email: "",
+          },
         ],
       },
     })),
@@ -244,7 +302,42 @@ export const useOnboardingStore = create<DealerOnboardingState & StoreActions>((
     set((state) => ({
       ownership: {
         ...state.ownership,
-        directors: state.ownership.directors.filter((director) => director.id !== id),
+        directors: state.ownership.directors.filter(
+          (director) => director.id !== id
+        ),
       },
     })),
+
+  completeOnboarding: () => {
+    const state = get();
+
+    const generatedDealerId = state.dealerId || generateDealerId();
+    const dealerDisplayName = state.company.companyName || "Unnamed Dealer";
+
+    const dealerDashboardData = {
+      dealerId: generatedDealerId,
+      dealerDisplayName,
+      companyName: state.company.companyName,
+      companyType: state.company.companyType,
+      gstNumber: state.company.gstNumber,
+      financeEnabled: state.finance.enableFinance,
+      submittedAt: new Date().toISOString(),
+    };
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "dealerDashboardData",
+        JSON.stringify(dealerDashboardData)
+      );
+    }
+
+    set({
+      dealerId: generatedDealerId,
+      dealerDisplayName,
+      status: "under_review",
+      lastSavedAt: new Date().toISOString(),
+    });
+
+    return generatedDealerId;
+  },
 }));

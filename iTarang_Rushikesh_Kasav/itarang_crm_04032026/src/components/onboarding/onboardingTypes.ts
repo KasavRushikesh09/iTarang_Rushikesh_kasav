@@ -131,6 +131,8 @@ export type DealerOnboardingState = {
   step: number;
   status: "draft" | "in_progress" | "under_review" | "action_needed" | "approved";
   lastSavedAt: string | null;
+  dealerId: string;
+  dealerDisplayName: string;
   company: CompanyStepData;
   compliance: ComplianceStepData;
   ownership: OwnershipBankingData;
@@ -138,4 +140,5 @@ export type DealerOnboardingState = {
   agreement: AgreementData;
   reviewChecks: ReviewChecks;
   errors: Record<string, string>;
+
 };
