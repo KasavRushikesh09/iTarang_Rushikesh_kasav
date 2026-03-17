@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboardingStore } from "@/store/onboardingStore";
 
@@ -22,6 +23,7 @@ function ReviewCard({
 
 export default function StepReview() {
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const state = useOnboardingStore();
   const prevStep = useOnboardingStore((s) => s.prevStep);
@@ -30,7 +32,7 @@ export default function StepReview() {
   const setErrors = useOnboardingStore((s) => s.setErrors);
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
 
-  const handleSubmitApplication = () => {
+  const handleSubmitApplication = async () => {
     const submitErrors: Record<string, string> = {};
 
     if (!state.reviewChecks.confirmInfo) {
@@ -50,11 +52,64 @@ export default function StepReview() {
       return;
     }
 
-    const generatedDealerId = completeOnboarding();
+    try {
+      setIsSubmitting(true);
 
-    console.log("Dealer onboarding completed with ID:", generatedDealerId);
+      const payload = {
+        dealerUserId: state.dealerId || null, // replace later with real logged-in user id
+        companyName: state.company.companyName || "",
+        companyType: state.company.companyType || "",
+        gstNumber: state.company.gstNumber || "",
+        panNumber: state.company.companyPanNumber || "",
+        // cinNumber: state.company.cinNumber || "",
+        businessAddress: {
+          address: state.company.companyAddress || "",
+        },
+        registeredAddress: {
+          address: state.company.companyAddress || "",
+        },
+        financeEnabled: state.finance.enableFinance === "yes",
+        onboardingStatus: "submitted",
+        ownerName: state.ownership?.ownerName || "",
+ownerPhone: state.ownership?.ownerPhone || "",
+ownerEmail: state.ownership?.ownerEmail || "",
+bankName: state.ownership?.bankName || "",
+accountNumber: state.ownership?.accountNumber || "",
+beneficiaryName: state.ownership?.beneficiaryName || "",
+ifscCode: state.ownership?.ifsc || "",
+      };
 
-    router.push("/dealer-portal");
+      const response = await fetch("/api/dealer-onboarding/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setErrors({
+          api: result.message || "Failed to submit dealer onboarding application",
+        });
+        return;
+      }
+
+      const generatedDealerId = completeOnboarding();
+
+      console.log("Dealer onboarding saved in DB:", result.application);
+      console.log("Dealer onboarding completed with ID:", generatedDealerId);
+
+      router.push("/dealer-portal");
+    } catch (error) {
+      console.error("Dealer onboarding submission error:", error);
+      setErrors({
+        api: error instanceof Error ? error.message : "Something went wrong while submitting",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -72,6 +127,7 @@ export default function StepReview() {
           <p>Company Type: {state.company.companyType || "—"}</p>
           <p>GST: {state.company.gstNumber || "—"}</p>
           <p>PAN: {state.company.companyPanNumber || "—"}</p>
+          {/* <p>CIN: {state.company.cinNumber || "—"}</p> */}
           <p className="md:col-span-2">Address: {state.company.companyAddress || "—"}</p>
         </div>
       </ReviewCard>
@@ -149,11 +205,12 @@ export default function StepReview() {
           <p className="text-sm text-red-600">{errors.agreeTerms}</p>
         )}
 
+        {errors.api && (
+          <p className="text-sm text-red-600">{errors.api}</p>
+        )}
+
         {Object.entries(errors)
-          .filter(
-            ([key]) =>
-              !["confirmInfo", "confirmDocs", "agreeTerms"].includes(key)
-          )
+          .filter(([key]) => !["confirmInfo", "confirmDocs", "agreeTerms", "api"].includes(key))
           .map(([key, error]) => (
             <p key={key} className="text-sm text-red-600">
               {error}
@@ -165,7 +222,8 @@ export default function StepReview() {
         <button
           type="button"
           onClick={prevStep}
-          className="px-6 py-3 rounded-2xl border border-[#E3E8EF] text-slate-700 font-semibold"
+          disabled={isSubmitting}
+          className="px-6 py-3 rounded-2xl border border-[#E3E8EF] text-slate-700 font-semibold disabled:opacity-50"
         >
           ← Back
         </button>
@@ -173,9 +231,10 @@ export default function StepReview() {
         <button
           type="button"
           onClick={handleSubmitApplication}
-          className="px-6 py-3 rounded-2xl bg-[#1F5C8F] text-white font-semibold hover:bg-[#173F63]"
+          disabled={isSubmitting}
+          className="px-6 py-3 rounded-2xl bg-[#1F5C8F] text-white font-semibold hover:bg-[#173F63] disabled:opacity-50"
         >
-          Submit Dealer Application
+          {isSubmitting ? "Submitting..." : "Submit Dealer Application"}
         </button>
       </div>
     </div>

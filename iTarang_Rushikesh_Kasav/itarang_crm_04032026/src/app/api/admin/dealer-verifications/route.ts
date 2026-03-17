@@ -1,35 +1,50 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db/index";
+import { dealerOnboardingApplications } from "@/lib/db/schema";
+import { desc } from "drizzle-orm";
 
 export async function GET() {
   try {
-    // Replace this with your real DB query
-    const data = [
-      {
-        dealerId: 'DLR-001',
-        dealerName: 'ABC Motors',
-        companyName: 'ABC Motors Pvt Ltd',
-        companyType: 'Pvt Ltd',
-        documentsUploaded: 6,
-        totalDocuments: 6,
-        agreementStatus: 'Signed',
-        onboardingStatus: 'pending_admin_review',
-      },
-      {
-        dealerId: 'DLR-002',
-        dealerName: 'Green EV',
-        companyName: 'Green EV Partnership',
-        companyType: 'Partnership',
-        documentsUploaded: 5,
-        totalDocuments: 6,
-        agreementStatus: 'N/A',
-        onboardingStatus: 'under_correction',
-      },
-    ];
+    const applications = await db
+      .select({
+        id: dealerOnboardingApplications.id,
+        companyName: dealerOnboardingApplications.companyName,
+        companyType: dealerOnboardingApplications.companyType,
+        gstNumber: dealerOnboardingApplications.gstNumber,
+        financeEnabled: dealerOnboardingApplications.financeEnabled,
+        onboardingStatus: dealerOnboardingApplications.onboardingStatus,
+        reviewStatus: dealerOnboardingApplications.reviewStatus,
+        submittedAt: dealerOnboardingApplications.submittedAt,
+        createdAt: dealerOnboardingApplications.createdAt,
+      })
+      .from(dealerOnboardingApplications)
+      .orderBy(desc(dealerOnboardingApplications.createdAt));
 
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
+    const formatted = applications.map((item) => ({
+      dealerId: item.id,
+      dealerName: item.companyName,
+      companyName: item.companyName,
+      documents: "Pending", // replace with real count after document table integration
+      agreement: item.financeEnabled ? "Required" : "N/A",
+      status: item.onboardingStatus,
+      submittedAt: item.submittedAt,
+      gstNumber: item.gstNumber,
+      financeEnabled: item.financeEnabled,
+      companyType: item.companyType,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      applications: formatted,
+    });
+  } catch (error: any) {
+    console.error("ADMIN DEALER VERIFICATIONS LIST ERROR:", error);
+
     return NextResponse.json(
-      { success: false, message: 'Failed to load dealer verification queue' },
+      {
+        success: false,
+        message: error?.message || "Failed to fetch dealer verifications",
+      },
       { status: 500 }
     );
   }

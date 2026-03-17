@@ -1,4 +1,6 @@
-import { pgTable, text, timestamp, integer, boolean, varchar, decimal, jsonb, uuid, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, varchar, decimal, jsonb, uuid, index, bigint } from 'drizzle-orm/pg-core';
+// import { pgTable, uuid, text, varchar, boolean, timestamp, jsonb, bigint } from "drizzle-orm/pg-core";
+
 import { relations } from 'drizzle-orm';
 
 // --- FOUNDATION ---
@@ -1470,3 +1472,76 @@ export const scrapedDealerLeadsRelations = relations(scrapedDealerLeads, ({ one 
 export const scraperDedupLogsRelations = relations(scraperDedupLogs, ({ one }) => ({
     scraperRun: one(scraperRuns, { fields: [scraperDedupLogs.scraper_run_id], references: [scraperRuns.id] }),
 }));
+
+export const dealerOnboardingApplications = pgTable("dealer_onboarding_applications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  dealerUserId: uuid("dealer_user_id"),
+  companyName: text("company_name").notNull(),
+  companyType: text("company_type"),
+  gstNumber: text("gst_number"),
+  panNumber: text("pan_number"),
+  cinNumber: text("cin_number"),
+  businessAddress: jsonb("business_address").default({}),
+  registeredAddress: jsonb("registered_address").default({}),
+  financeEnabled: boolean("finance_enabled").default(false),
+  onboardingStatus: varchar("onboarding_status", { length: 30 }).default("draft").notNull(),
+  reviewStatus: varchar("review_status", { length: 30 }).default("pending"),
+  submittedAt: timestamp("submitted_at"),
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  ownerName: text("owner_name"),
+  ownerPhone: text("owner_phone"),
+  ownerEmail: text("owner_email"),
+
+  bankName: text("bank_name"),
+  accountNumber: text("account_number"),
+  beneficiaryName: text("beneficiary_name"),
+  ifscCode: text("ifsc_code"),
+
+  correctionRemarks: text("correction_remarks"),
+  rejectionRemarks: text("rejection_remarks"),
+
+  dealerAccountStatus: varchar("dealer_account_status", { length: 30 }).default("inactive"),
+  dealerCode: text("dealer_code"),
+});
+
+export const dealerOnboardingDocuments = pgTable("dealer_onboarding_documents", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  applicationId: uuid("application_id")
+    .notNull()
+    .references(() => dealerOnboardingApplications.id, { onDelete: "cascade" }),
+
+  documentType: varchar("document_type", { length: 100 }).notNull(),
+
+  bucketName: text("bucket_name").notNull(),
+  storagePath: text("storage_path").notNull(),
+
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url"),
+
+  mimeType: varchar("mime_type", { length: 100 }),
+  fileSize: bigint("file_size", { mode: "number" }),
+
+  uploadedBy: uuid("uploaded_by"),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+
+  docStatus: varchar("doc_status", { length: 30 }).default("uploaded").notNull(),
+  verificationStatus: varchar("verification_status", { length: 30 }).default("pending"),
+
+  verifiedAt: timestamp("verified_at"),
+  verifiedBy: uuid("verified_by"),
+
+  rejectionReason: text("rejection_reason"),
+
+  extractedData: jsonb("extracted_data").default({}),
+  apiVerificationResults: jsonb("api_verification_results").default({}),
+  metadata: jsonb("metadata").default({}),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

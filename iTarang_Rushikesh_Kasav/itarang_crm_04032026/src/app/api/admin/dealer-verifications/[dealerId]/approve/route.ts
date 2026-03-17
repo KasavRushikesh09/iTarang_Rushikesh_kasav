@@ -1,23 +1,31 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db/index";
+import { dealerOnboardingApplications } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { dealerId: string } }
-) {
+type RouteContext = {
+  params: Promise<{ dealerId: string }>;
+};
+
+export async function POST(_req: NextRequest, context: RouteContext) {
   try {
-    // Replace with real DB update:
-    // onboarding_status = 'succeed'
-    // dealer_status = 'active'
-    // finance_enablement = 'active'
-    // generate credentials / email
+    const { dealerId } = await context.params;
 
-    return NextResponse.json({
-      success: true,
-      message: `Dealer ${params.dealerId} approved successfully`,
-    });
-  } catch (error) {
+    await db
+      .update(dealerOnboardingApplications)
+      .set({
+        onboardingStatus: "completed",
+        reviewStatus: "approved",
+        dealerAccountStatus: "active",
+        approvedAt: new Date(),
+      })
+      .where(eq(dealerOnboardingApplications.id, dealerId));
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("APPROVE DEALER ERROR:", error);
     return NextResponse.json(
-      { success: false, message: 'Approval failed' },
+      { success: false, message: error?.message || "Approve failed" },
       { status: 500 }
     );
   }

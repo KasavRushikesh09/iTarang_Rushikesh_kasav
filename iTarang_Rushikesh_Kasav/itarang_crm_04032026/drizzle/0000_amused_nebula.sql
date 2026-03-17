@@ -1,4 +1,4 @@
-CREATE TABLE "approvals" (
+CREATE TABLE IF NOT EXISTS "approvals" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"entity_type" varchar(50) NOT NULL,
 	"entity_id" varchar(255) NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE "approvals" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "audit_logs" (
+CREATE TABLE IF NOT EXISTS "audit_logs" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"entity_type" varchar(50) NOT NULL,
 	"entity_id" varchar(255) NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE "audit_logs" (
 	"timestamp" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "deals" (
+CREATE TABLE IF NOT EXISTS "deals" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"lead_id" varchar(255) NOT NULL,
 	"products" jsonb NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE "deals" (
 --> statement-breakpoint
 -- Existing: CREATE TABLE "inventory"
 --> statement-breakpoint
-CREATE TABLE "lead_assignments" (
+CREATE TABLE IF NOT EXISTS "lead_assignments" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"lead_id" varchar(255) NOT NULL,
 	"lead_owner" uuid NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE "lead_assignments" (
 --> statement-breakpoint
 -- Existing: CREATE TABLE "oem_contacts"
 --> statement-breakpoint
-CREATE TABLE "oem_inventory_for_pdi" (
+CREATE TABLE IF NOT EXISTS "oem_inventory_for_pdi" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"provision_id" varchar(255) NOT NULL,
 	"product_id" varchar(255) NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE "oem_inventory_for_pdi" (
 --> statement-breakpoint
 -- Existing: CREATE TABLE "orders"
 --> statement-breakpoint
-CREATE TABLE "pdi_records" (
+CREATE TABLE IF NOT EXISTS "pdi_records" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"oem_inventory_id" varchar(255) NOT NULL,
 	"provision_id" varchar(255) NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE "pdi_records" (
 --> statement-breakpoint
 -- Existing: CREATE TABLE "provisions"
 --> statement-breakpoint
-CREATE TABLE "slas" (
+CREATE TABLE IF NOT EXISTS "slas" (
 	"id" varchar(255) PRIMARY KEY NOT NULL,
 	"workflow_step" varchar(100) NOT NULL,
 	"entity_type" varchar(50) NOT NULL,
@@ -108,20 +108,20 @@ CREATE TABLE "slas" (
 --> statement-breakpoint
 -- Existing: CREATE TABLE "users"
 --> statement-breakpoint
-ALTER TABLE "approvals" ADD CONSTRAINT "approvals_approver_id_users_id_fk" FOREIGN KEY ("approver_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_performed_by_users_id_fk" FOREIGN KEY ("performed_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "deals" ADD CONSTRAINT "deals_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "deals" ADD CONSTRAINT "deals_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
--- Removed FKs for existing inventory
-ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_lead_owner_users_id_fk" FOREIGN KEY ("lead_owner") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_assigned_by_users_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
--- Removed FKs for leads and oem_contacts
-ALTER TABLE "oem_inventory_for_pdi" ADD CONSTRAINT "oem_inventory_for_pdi_product_id_product_catalog_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."product_catalog"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "oem_inventory_for_pdi" ADD CONSTRAINT "oem_inventory_for_pdi_oem_id_oems_id_fk" FOREIGN KEY ("oem_id") REFERENCES "public"."oems"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
--- Removed FKs for oems and orders
-ALTER TABLE "pdi_records" ADD CONSTRAINT "pdi_records_oem_inventory_id_oem_inventory_for_pdi_id_fk" FOREIGN KEY ("oem_inventory_id") REFERENCES "public"."oem_inventory_for_pdi"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "pdi_records" ADD CONSTRAINT "pdi_records_service_engineer_id_users_id_fk" FOREIGN KEY ("service_engineer_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
--- Removed FKs for product_catalog and provisions
-ALTER TABLE "slas" ADD CONSTRAINT "slas_assigned_to_users_id_fk" FOREIGN KEY ("assigned_to") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "slas" ADD CONSTRAINT "slas_escalated_to_users_id_fk" FOREIGN KEY ("escalated_to") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;
+-- ALTER TABLE "approvals" ADD CONSTRAINT "approvals_approver_id_users_id_fk" FOREIGN KEY ("approver_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_performed_by_users_id_fk" FOREIGN KEY ("performed_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "deals" ADD CONSTRAINT "deals_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "deals" ADD CONSTRAINT "deals_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- -- Removed FKs for existing inventory
+-- ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_lead_id_leads_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."leads"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_lead_owner_users_id_fk" FOREIGN KEY ("lead_owner") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "lead_assignments" ADD CONSTRAINT "lead_assignments_assigned_by_users_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- -- Removed FKs for leads and oem_contacts
+--ALTER TABLE "oem_inventory_for_pdi" ADD CONSTRAINT "oem_inventory_for_pdi_product_id_product_catalog_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."product_catalog"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+--ALTER TABLE "oem_inventory_for_pdi" ADD CONSTRAINT "oem_inventory_for_pdi_oem_id_oems_id_fk" FOREIGN KEY ("oem_id") REFERENCES "public"."oems"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- -- Removed FKs for oems and orders
+-- ALTER TABLE "pdi_records" ADD CONSTRAINT "pdi_records_oem_inventory_id_oem_inventory_for_pdi_id_fk" FOREIGN KEY ("oem_inventory_id") REFERENCES "public"."oem_inventory_for_pdi"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "pdi_records" ADD CONSTRAINT "pdi_records_service_engineer_id_users_id_fk" FOREIGN KEY ("service_engineer_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- -- Removed FKs for product_catalog and provisions
+-- ALTER TABLE "slas" ADD CONSTRAINT "slas_assigned_to_users_id_fk" FOREIGN KEY ("assigned_to") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+-- ALTER TABLE "slas" ADD CONSTRAINT "slas_escalated_to_users_id_fk" FOREIGN KEY ("escalated_to") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;

@@ -1,20 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db/index";
+import { dealerOnboardingApplications } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
-export async function POST(
-  req: Request,
-  { params }: { params: { dealerId: string } }
-) {
+type RouteContext = {
+  params: Promise<{ dealerId: string }>;
+};
+
+export async function POST(req: NextRequest, context: RouteContext) {
   try {
+    const { dealerId } = await context.params;
     const body = await req.json();
 
-    return NextResponse.json({
-      success: true,
-      message: `Dealer ${params.dealerId} rejected`,
-      remarks: body.remarks,
-    });
-  } catch (error) {
+    await db
+      .update(dealerOnboardingApplications)
+      .set({
+        onboardingStatus: "rejected",
+        reviewStatus: "rejected",
+        rejectedAt: new Date(),
+        rejectionRemarks: body.remarks || null,
+      })
+      .where(eq(dealerOnboardingApplications.id, dealerId));
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("REJECT DEALER ERROR:", error);
     return NextResponse.json(
-      { success: false, message: 'Rejection failed' },
+      { success: false, message: error?.message || "Reject failed" },
       { status: 500 }
     );
   }
