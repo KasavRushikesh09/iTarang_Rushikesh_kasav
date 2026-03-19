@@ -122,14 +122,14 @@ function StatusBadge({ value }: { value?: string | null }) {
     status === "completed" || status === "approved" || status === "succeed"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : status === "submitted" || status === "pending_admin_review"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : status === "under_review"
-      ? "border-blue-200 bg-blue-50 text-blue-700"
-      : status === "under_correction" || status === "correction_requested"
-      ? "border-orange-200 bg-orange-50 text-orange-700"
-      : status === "rejected"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : "border-slate-200 bg-slate-50 text-slate-700";
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : status === "under_review"
+          ? "border-blue-200 bg-blue-50 text-blue-700"
+          : status === "under_correction" || status === "correction_requested"
+            ? "border-orange-200 bg-orange-50 text-orange-700"
+            : status === "rejected"
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-slate-200 bg-slate-50 text-slate-700";
 
   return (
     <span
@@ -147,10 +147,10 @@ function AgreementBadge({ value }: { value?: string | null }) {
     status === "completed" || status === "signed"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : status === "pending"
-      ? "border-amber-200 bg-amber-50 text-amber-700"
-      : status === "not available" || status === ""
-      ? "border-slate-200 bg-slate-50 text-slate-700"
-      : "border-blue-200 bg-blue-50 text-blue-700";
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : status === "not available" || status === ""
+          ? "border-slate-200 bg-slate-50 text-slate-700"
+          : "border-blue-200 bg-blue-50 text-blue-700";
 
   return (
     <span
@@ -428,13 +428,13 @@ export default function DealerReviewPage() {
               <InfoField label="CIN Number" value={data.cinNumber} />
               <InfoField label="Company Type" value={data.companyType?.replaceAll("_", " ")} />
 
-              {data.companyType === "proprietorship" && (
-                <>
-                  <InfoField label="Owner Name" value={data.ownerName} />
-                  <InfoField label="Owner Phone" value={data.ownerPhone} />
-                  <InfoField label="Owner Email" value={data.ownerEmail} />
-                </>
-              )}
+              
+                  <>
+                    <InfoField label="Primary Contact Name" value={data.ownerName} />
+                    <InfoField label="Primary Contact Phone" value={data.ownerPhone} />
+                    <InfoField label="Primary Contact Email" value={data.ownerEmail} />
+                  </>
+                
 
               <InfoField label="Bank Name" value={data.bankName} />
               <InfoField label="Account Number" value={data.accountNumber} />

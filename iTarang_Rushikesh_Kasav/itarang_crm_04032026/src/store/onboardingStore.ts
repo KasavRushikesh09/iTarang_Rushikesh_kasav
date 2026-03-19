@@ -153,12 +153,29 @@ const initialState: DealerOnboardingState = {
   errors: {},
 };
 
+function removeStaleSubmitErrors(errors: Record<string, string>) {
+  const nextErrors = { ...errors };
+
+  Object.keys(nextErrors).forEach((key) => {
+    const value = nextErrors[key];
+    if (
+      value === "Primary contact name is required before submission" ||
+      value === "Primary contact phone is required before submission" ||
+      value === "Primary contact email is required before submission"
+    ) {
+      delete nextErrors[key];
+    }
+  });
+
+  return nextErrors;
+}
+
 export const useOnboardingStore = create<
   DealerOnboardingState & StoreActions
 >((set, get) => ({
   ...initialState,
 
-  setStep: (step) => set({ step }),
+  setStep: (step) => set({ step, errors: {} }),
 
   nextStep: () => {
     const current = get();
@@ -192,9 +209,13 @@ export const useOnboardingStore = create<
   prevStep: () =>
     set((state) => {
       if (state.step === 6 && state.finance.enableFinance === "no") {
-        return { step: 4 };
+        return { step: 4, errors: {} };
       }
-      return { step: Math.max(state.step - 1, 1) };
+
+      return {
+        step: Math.max(state.step - 1, 1),
+        errors: {},
+      };
     }),
 
   setField: (section, field, value) =>
@@ -204,6 +225,7 @@ export const useOnboardingStore = create<
         ...(state[section] as any),
         [field]: value,
       },
+      errors: removeStaleSubmitErrors(state.errors),
       lastSavedAt: new Date().toISOString(),
     })),
 
@@ -232,6 +254,7 @@ export const useOnboardingStore = create<
         [field]: fileItem,
       };
 
+      nextState.errors = removeStaleSubmitErrors(state.errors);
       nextState.lastSavedAt = new Date().toISOString();
       return nextState;
     }),
@@ -250,6 +273,7 @@ export const useOnboardingStore = create<
           },
         ],
       },
+      errors: {},
     })),
 
   updatePartner: (id, field, value) =>
@@ -260,6 +284,7 @@ export const useOnboardingStore = create<
           partner.id === id ? { ...partner, [field]: value } : partner
         ),
       },
+      errors: {},
     })),
 
   removePartner: (id) =>
@@ -270,6 +295,7 @@ export const useOnboardingStore = create<
           (partner) => partner.id !== id
         ),
       },
+      errors: {},
     })),
 
   addDirector: () =>
@@ -286,6 +312,7 @@ export const useOnboardingStore = create<
           },
         ],
       },
+      errors: {},
     })),
 
   updateDirector: (id, field, value) =>
@@ -296,6 +323,7 @@ export const useOnboardingStore = create<
           director.id === id ? { ...director, [field]: value } : director
         ),
       },
+      errors: {},
     })),
 
   removeDirector: (id) =>
@@ -306,6 +334,7 @@ export const useOnboardingStore = create<
           (director) => director.id !== id
         ),
       },
+      errors: {},
     })),
 
   completeOnboarding: () => {
@@ -336,6 +365,7 @@ export const useOnboardingStore = create<
       dealerDisplayName,
       status: "under_review",
       lastSavedAt: new Date().toISOString(),
+      errors: {},
     });
 
     return generatedDealerId;

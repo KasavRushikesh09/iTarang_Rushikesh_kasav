@@ -5,30 +5,37 @@ import {
   dealerOnboardingDocuments,
 } from "@/lib/db/schema";
 
+function cleanString(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const {
-      dealerUserId,
-      companyName,
-      companyType,
-      gstNumber,
-      panNumber,
-      cinNumber,
-      businessAddress,
-      registeredAddress,
-      financeEnabled,
-      onboardingStatus,
-      ownerName,
-      ownerPhone,
-      ownerEmail,
-      bankName,
-      accountNumber,
-      beneficiaryName,
-      ifscCode,
-      documents,
-    } = body;
+    const dealerUserId = body.dealerUserId ?? null;
+    const companyName = cleanString(body.companyName);
+    const companyType = cleanString(body.companyType);
+    const gstNumber = cleanString(body.gstNumber);
+    const panNumber = cleanString(body.panNumber);
+    const cinNumber = cleanString(body.cinNumber);
+    const businessAddress = body.businessAddress ?? {};
+    const registeredAddress = body.registeredAddress ?? {};
+    const financeEnabled = body.financeEnabled ?? false;
+    const onboardingStatus = body.onboardingStatus ?? "draft";
+
+    const ownerName = cleanString(body.ownerName);
+    const ownerPhone = cleanString(body.ownerPhone);
+    const ownerEmail = cleanString(body.ownerEmail);
+
+    const bankName = cleanString(body.bankName);
+    const accountNumber = cleanString(body.accountNumber);
+    const beneficiaryName = cleanString(body.beneficiaryName);
+    const ifscCode = cleanString(body.ifscCode);
+
+    const documents = Array.isArray(body.documents) ? body.documents : [];
 
     if (!companyName) {
       return NextResponse.json(
@@ -37,33 +44,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (onboardingStatus === "submitted") {
+      if (!ownerName) {
+        return NextResponse.json(
+          { success: false, message: "Primary contact name is required before submission" },
+          { status: 400 }
+        );
+      }
+
+      if (!ownerPhone) {
+        return NextResponse.json(
+          { success: false, message: "Primary contact phone is required before submission" },
+          { status: 400 }
+        );
+      }
+
+      if (!ownerEmail) {
+        return NextResponse.json(
+          { success: false, message: "Primary contact email is required before submission" },
+          { status: 400 }
+        );
+      }
+    }
+
     const insertedApplications = await db
       .insert(dealerOnboardingApplications)
       .values({
-        dealerUserId: dealerUserId ?? null,
+        dealerUserId,
         companyName,
-        companyType: companyType ?? null,
-        gstNumber: gstNumber ?? null,
-        panNumber: panNumber ?? null,
-        cinNumber: cinNumber ?? null,
-        businessAddress: businessAddress ?? {},
-        registeredAddress: registeredAddress ?? {},
-        financeEnabled: financeEnabled ?? false,
-        onboardingStatus: onboardingStatus ?? "draft",
+        companyType,
+        gstNumber,
+        panNumber,
+        cinNumber,
+        businessAddress,
+        registeredAddress,
+        financeEnabled,
+        onboardingStatus,
         submittedAt: onboardingStatus === "submitted" ? new Date() : null,
-        ownerName: ownerName ?? null,
-        ownerPhone: ownerPhone ?? null,
-        ownerEmail: ownerEmail ?? null,
-        bankName: bankName ?? null,
-        accountNumber: accountNumber ?? null,
-        beneficiaryName: beneficiaryName ?? null,
-        ifscCode: ifscCode ?? null,
+        ownerName,
+        ownerPhone,
+        ownerEmail,
+        bankName,
+        accountNumber,
+        beneficiaryName,
+        ifscCode,
       })
       .returning();
 
     const application = insertedApplications[0];
 
-    if (Array.isArray(documents) && documents.length > 0) {
+    if (documents.length > 0) {
       const validDocuments = documents
         .filter(
           (doc: any) =>
@@ -81,7 +111,7 @@ export async function POST(req: NextRequest) {
           fileUrl: doc.fileUrl ?? null,
           mimeType: doc.mimeType ?? null,
           fileSize: typeof doc.fileSize === "number" ? doc.fileSize : null,
-          uploadedBy: dealerUserId ?? null,
+          uploadedBy: dealerUserId,
           docStatus: doc.docStatus ?? "uploaded",
           verificationStatus: doc.verificationStatus ?? "pending",
           metadata: doc.metadata ?? {},

@@ -57,6 +57,42 @@ function buildDocument(
   };
 }
 
+function getPrimaryContact(state: ReturnType<typeof useOnboardingStore.getState>) {
+  const companyType = state.company?.companyType;
+
+  if (companyType === "sole_proprietorship") {
+    return {
+      ownerName: state.ownership?.ownerName || "",
+      ownerPhone: state.ownership?.ownerPhone || "",
+      ownerEmail: state.ownership?.ownerEmail || "",
+    };
+  }
+
+  if (companyType === "partnership_firm") {
+    const firstPartner = state.ownership?.partners?.[0];
+    return {
+      ownerName: firstPartner?.name || "",
+      ownerPhone: firstPartner?.phone || "",
+      ownerEmail: firstPartner?.email || "",
+    };
+  }
+
+  if (companyType === "private_limited_firm") {
+    const firstDirector = state.ownership?.directors?.[0];
+    return {
+      ownerName: firstDirector?.name || "",
+      ownerPhone: firstDirector?.phone || "",
+      ownerEmail: firstDirector?.email || "",
+    };
+  }
+
+  return {
+    ownerName: state.ownership?.ownerName || "",
+    ownerPhone: state.ownership?.ownerPhone || "",
+    ownerEmail: state.ownership?.ownerEmail || "",
+  };
+}
+
 export default function StepReview() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +103,8 @@ export default function StepReview() {
   const errors = useOnboardingStore((s) => s.errors);
   const setErrors = useOnboardingStore((s) => s.setErrors);
   const completeOnboarding = useOnboardingStore((s) => s.completeOnboarding);
+
+  const primaryContact = getPrimaryContact(state);
 
   const handleSubmitApplication = async () => {
     const submitErrors: Record<string, string> = {};
@@ -97,6 +135,18 @@ export default function StepReview() {
       submitErrors.documents = "Please upload at least one valid document before submitting";
     }
 
+    if (!primaryContact.ownerName) {
+      submitErrors.ownerName = "Primary contact name is required before submission";
+    }
+
+    if (!primaryContact.ownerPhone) {
+      submitErrors.ownerPhone = "Primary contact phone is required before submission";
+    }
+
+    if (!primaryContact.ownerEmail) {
+      submitErrors.ownerEmail = "Primary contact email is required before submission";
+    }
+
     if (Object.keys(submitErrors).length > 0) {
       setErrors(submitErrors);
       return;
@@ -119,15 +169,19 @@ export default function StepReview() {
         },
         financeEnabled: state.finance?.enableFinance === "yes",
         onboardingStatus: "submitted",
-        ownerName: state.ownership?.ownerName || "",
-        ownerPhone: state.ownership?.ownerPhone || "",
-        ownerEmail: state.ownership?.ownerEmail || "",
+
+        ownerName: primaryContact.ownerName,
+        ownerPhone: primaryContact.ownerPhone,
+        ownerEmail: primaryContact.ownerEmail,
+
         bankName: state.ownership?.bankName || "",
         accountNumber: state.ownership?.accountNumber || "",
         beneficiaryName: state.ownership?.beneficiaryName || "",
         ifscCode: state.ownership?.ifsc || "",
         documents,
       };
+
+      console.log("FINAL SUBMIT PAYLOAD", payload);
 
       const response = await fetch("/api/dealer-onboarding/save", {
         method: "POST",
@@ -181,6 +235,14 @@ export default function StepReview() {
           <p>GST: {state.company?.gstNumber || "—"}</p>
           <p>PAN: {state.company?.companyPanNumber || "—"}</p>
           <p className="md:col-span-2">Address: {state.company?.companyAddress || "—"}</p>
+        </div>
+      </ReviewCard>
+
+      <ReviewCard title="Primary Contact Details">
+        <div className="space-y-2 text-sm text-slate-700">
+          <p>Name: {primaryContact.ownerName || "—"}</p>
+          <p>Phone: {primaryContact.ownerPhone || "—"}</p>
+          <p>Email: {primaryContact.ownerEmail || "—"}</p>
         </div>
       </ReviewCard>
 
@@ -279,10 +341,34 @@ export default function StepReview() {
           <p className="text-sm text-red-600">{errors.documents}</p>
         )}
 
+        {errors.ownerName && (
+          <p className="text-sm text-red-600">{errors.ownerName}</p>
+        )}
+
+        {errors.ownerPhone && (
+          <p className="text-sm text-red-600">{errors.ownerPhone}</p>
+        )}
+
+        {errors.ownerEmail && (
+          <p className="text-sm text-red-600">{errors.ownerEmail}</p>
+        )}
+
         {errors.api && <p className="text-sm text-red-600">{errors.api}</p>}
 
         {Object.entries(errors)
-          .filter(([key]) => !["confirmInfo", "confirmDocs", "agreeTerms", "documents", "api"].includes(key))
+          .filter(
+            ([key]) =>
+              ![
+                "confirmInfo",
+                "confirmDocs",
+                "agreeTerms",
+                "documents",
+                "ownerName",
+                "ownerPhone",
+                "ownerEmail",
+                "api",
+              ].includes(key)
+          )
           .map(([key, error]) => (
             <p key={key} className="text-sm text-red-600">
               {error}
