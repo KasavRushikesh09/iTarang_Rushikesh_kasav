@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+  useEffect,
+  useCallback,
+} from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -61,8 +67,9 @@ function InputField({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       readOnly={readOnly}
-      className={`w-full rounded-2xl border border-[#E3E8EF] px-4 py-3.5 focus:border-[#1F5C8F] focus:outline-none focus:ring-2 focus:ring-blue-100 ${readOnly ? "bg-slate-50 text-slate-500" : "bg-white"
-        }`}
+      className={`w-full rounded-2xl border border-[#E3E8EF] px-4 py-3.5 focus:border-[#1F5C8F] focus:outline-none focus:ring-2 focus:ring-blue-100 ${
+        readOnly ? "bg-slate-50 text-slate-500" : "bg-white"
+      }`}
     />
   );
 }
@@ -127,6 +134,8 @@ function PartyCard({
 }
 
 function StatusBadge({ status }: { status: string | undefined }) {
+  const safeStatus = (status || "not_generated").toLowerCase();
+
   const map: Record<string, string> = {
     not_generated: "bg-slate-100 text-slate-700 border-slate-200",
     sent_for_signature: "bg-indigo-100 text-indigo-700 border-indigo-200",
@@ -134,22 +143,86 @@ function StatusBadge({ status }: { status: string | undefined }) {
     completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
     failed: "bg-red-100 text-red-700 border-red-200",
     expired: "bg-orange-100 text-orange-700 border-orange-200",
+    requested: "bg-slate-100 text-slate-700 border-slate-200",
+    viewed: "bg-amber-100 text-amber-700 border-amber-200",
+    signed: "bg-emerald-100 text-emerald-700 border-emerald-200",
   };
-
-  const safeStatus = status || "not_generated";
 
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${map[safeStatus] || map.not_generated
-        }`}
+      className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+        map[safeStatus] || map.not_generated
+      }`}
     >
       {safeStatus.replaceAll("_", " ")}
     </span>
   );
 }
 
+function normalizeStatusText(value?: string) {
+  return (value || "").trim().toLowerCase();
+}
+
+function parseStoredSignerLinks(providerRawResponse?: string): SignerUrlItem[] {
+  if (!providerRawResponse) return [];
+
+  try {
+    const parsed = JSON.parse(providerRawResponse);
+
+    const items: any[] = Array.isArray(parsed?.signerUrls)
+      ? parsed.signerUrls
+      : Array.isArray(parsed?.signing_parties)
+        ? parsed.signing_parties
+        : [];
+
+    return items.map((party: any) => ({
+      name: party?.name || "",
+      reason: party?.reason || "",
+      identifier: party?.identifier || "",
+      authenticationUrl:
+        party?.authenticationUrl || party?.authentication_url || "",
+      status: party?.status || "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function mergeSignerLists(
+  existing: SignerUrlItem[],
+  latest: SignerUrlItem[]
+): SignerUrlItem[] {
+  if (existing.length === 0) return latest;
+  if (latest.length === 0) return existing;
+
+  return existing.map((oldItem) => {
+    const matched =
+      latest.find(
+        (newItem) =>
+          normalizeStatusText(newItem.identifier) ===
+            normalizeStatusText(oldItem.identifier) ||
+          (normalizeStatusText(newItem.name) ===
+            normalizeStatusText(oldItem.name) &&
+            normalizeStatusText(newItem.reason) ===
+              normalizeStatusText(oldItem.reason))
+      ) || null;
+
+    if (!matched) return oldItem;
+
+    return {
+      ...oldItem,
+      status: matched.status || oldItem.status,
+      authenticationUrl: matched.authenticationUrl || oldItem.authenticationUrl,
+      identifier: matched.identifier || oldItem.identifier,
+      name: matched.name || oldItem.name,
+      reason: matched.reason || oldItem.reason,
+    };
+  });
+}
+
 export default function StepAgreement() {
   const [creating, setCreating] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
 
   const financeEnabled = useOnboardingStore((s) => s.finance.enableFinance);
   const company = useOnboardingStore((s) => s.company);
@@ -159,6 +232,7 @@ export default function StepAgreement() {
   const nextStep = useOnboardingStore((s) => s.nextStep);
   const setField = useOnboardingStore((s) => s.setField);
   const resetAgreementState = useOnboardingStore((s) => s.resetAgreementState);
+  const updateAgreementStatus = useOnboardingStore((s) => s.updateAgreementStatus);
 
   const dealerSignatoryOptions = useMemo(() => {
     if (company.companyType === "sole_proprietorship") {
@@ -175,7 +249,9 @@ export default function StepAgreement() {
 
     if (company.companyType === "partnership_firm") {
       return (ownership.partners || []).map((partner) => ({
-        label: `${partner?.name || "Partner"} - ${partner?.designation || "Partner"}`,
+        label: `${partner?.name || "Partner"} - ${
+          partner?.designation || "Partner"
+        }`,
         name: partner?.name || "",
         designation: partner?.designation || "Partner",
         email: partner?.email || "",
@@ -185,7 +261,9 @@ export default function StepAgreement() {
 
     if (company.companyType === "private_limited_firm") {
       return (ownership.directors || []).map((director) => ({
-        label: `${director?.name || "Director"} - ${director?.designation || "Director"}`,
+        label: `${director?.name || "Director"} - ${
+          director?.designation || "Director"
+        }`,
         name: director?.name || "",
         designation: director?.designation || "Director",
         email: director?.email || "",
@@ -197,30 +275,9 @@ export default function StepAgreement() {
   }, [company.companyType, ownership]);
 
   const signerLinks: SignerUrlItem[] = useMemo(() => {
-    if (!agreement.providerRawResponse) return [];
-
-    try {
-      const parsed = JSON.parse(agreement.providerRawResponse);
-
-      const items: any[] = Array.isArray(parsed?.signerUrls)
-        ? parsed.signerUrls
-        : Array.isArray(parsed?.signing_parties)
-          ? parsed.signing_parties
-          : [];
-
-      return items
-        .map((party: any): SignerUrlItem => ({
-          name: party?.name || "",
-          reason: party?.reason || "",
-          identifier: party?.identifier || "",
-          authenticationUrl:
-            party?.authenticationUrl || party?.authentication_url || "",
-          status: party?.status || "",
-        }))
-        .filter((item: SignerUrlItem) => !!item.authenticationUrl);
-    } catch {
-      return [];
-    }
+    return parseStoredSignerLinks(agreement.providerRawResponse).filter(
+      (item) => !!item.authenticationUrl || !!item.identifier || !!item.name
+    );
   }, [agreement.providerRawResponse]);
 
   const onDealerSignatoryChange = (selectedName: string) => {
@@ -285,6 +342,120 @@ export default function StepAgreement() {
 
     return true;
   }, [agreement]);
+
+  const refreshAgreementStatus = useCallback(
+    async (showLoader = false) => {
+      if (!agreement.requestId && !agreement.providerDocumentId) return;
+
+      try {
+        if (showLoader) {
+          setRefreshingStatus(true);
+        }
+
+        const query = new URLSearchParams();
+
+        if (agreement.requestId) {
+          query.set("requestId", agreement.requestId);
+        }
+
+        if (agreement.providerDocumentId) {
+          query.set("providerDocumentId", agreement.providerDocumentId);
+        }
+
+        const response = await fetch(
+          `/api/integrations/digio/agreement-status?${query.toString()}`,
+          {
+            method: "GET",
+            cache: "no-store",
+          }
+        );
+
+        const json = await response.json();
+
+        if (!response.ok || !json?.success) {
+          if (showLoader) {
+            alert(json?.message || "Failed to refresh agreement status");
+          }
+          return;
+        }
+
+        const existingSignerUrls = parseStoredSignerLinks(
+          agreement.providerRawResponse
+        );
+        const latestSignerUrls = Array.isArray(json?.data?.signerUrls)
+          ? json.data.signerUrls
+          : [];
+
+        const mergedSignerUrls = mergeSignerLists(
+          existingSignerUrls,
+          latestSignerUrls
+        );
+
+        updateAgreementStatus({
+          agreementStatus: json?.data?.agreementStatus,
+          providerDocumentId: json?.data?.providerDocumentId,
+          providerSigningUrl: json?.data?.providerSigningUrl,
+          providerRawResponse: JSON.stringify(
+            {
+              signerUrls:
+                mergedSignerUrls.length > 0 ? mergedSignerUrls : latestSignerUrls,
+              rawResponse: json?.data?.rawResponse || "",
+            },
+            null,
+            2
+          ),
+          signedAt: json?.data?.signedAt || agreement.signedAt,
+          lastActionTimestamp:
+            json?.data?.lastActionTimestamp || new Date().toISOString(),
+          completionStatus:
+            json?.data?.completionStatus || agreement.completionStatus,
+          stampStatus: json?.data?.stampStatus || agreement.stampStatus,
+          requestId: json?.data?.requestId || agreement.requestId,
+        });
+      } catch (error) {
+        console.error("DIGIO STATUS REFRESH ERROR:", error);
+        if (showLoader) {
+          alert("Failed to refresh agreement status");
+        }
+      } finally {
+        if (showLoader) {
+          setRefreshingStatus(false);
+        }
+      }
+    },
+    [
+      agreement.requestId,
+      agreement.providerDocumentId,
+      agreement.providerRawResponse,
+      agreement.signedAt,
+      agreement.completionStatus,
+      agreement.stampStatus,
+      updateAgreementStatus,
+    ]
+  );
+
+  useEffect(() => {
+    const shouldPoll =
+      !!(agreement.requestId || agreement.providerDocumentId) &&
+      agreement.agreementStatus !== "completed" &&
+      agreement.agreementStatus !== "failed" &&
+      agreement.agreementStatus !== "expired";
+
+    if (!shouldPoll) return;
+
+    refreshAgreementStatus(false);
+
+    const interval = window.setInterval(() => {
+      refreshAgreementStatus(false);
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [
+    agreement.requestId,
+    agreement.providerDocumentId,
+    agreement.agreementStatus,
+    refreshAgreementStatus,
+  ]);
 
   const handleGenerateViaDigio = async () => {
     try {
@@ -358,6 +529,10 @@ export default function StepAgreement() {
       setField("agreement", "completionStatus", "Sent for Signature");
 
       alert("Digio agreement created successfully.");
+
+      setTimeout(() => {
+        refreshAgreementStatus(false);
+      }, 1500);
     } catch (error) {
       console.error("DIGIO GENERATE ERROR:", error);
       alert("Failed to create Digio agreement");
@@ -873,6 +1048,30 @@ export default function StepAgreement() {
               {agreement.providerDocumentId || "Pending"}
             </p>
           </div>
+
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Agreement Status
+            </p>
+            <div className="mt-2">
+              <StatusBadge status={agreement.agreementStatus} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Completion Status
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-800">
+              {agreement.completionStatus || "Pending"}
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Signed At:{" "}
+              {agreement.signedAt
+                ? new Date(agreement.signedAt).toLocaleString()
+                : "Not signed yet"}
+            </p>
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
@@ -884,6 +1083,21 @@ export default function StepAgreement() {
           >
             <ShieldCheck className="h-4 w-4" />
             {creating ? "Generating..." : "Generate via Digio"}
+          </button>
+
+          <button
+            type="button"
+            disabled={
+              refreshingStatus ||
+              (!agreement.requestId && !agreement.providerDocumentId)
+            }
+            onClick={() => refreshAgreementStatus(true)}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshingStatus ? "animate-spin" : ""}`}
+            />
+            {refreshingStatus ? "Refreshing..." : "Refresh Status"}
           </button>
 
           <button
@@ -911,12 +1125,12 @@ export default function StepAgreement() {
         {signerLinks.length > 0 ? (
           <div className="mt-6 space-y-3">
             <h4 className="text-sm font-semibold text-slate-800">
-              All Signing Links
+              All Signing Links / Signer Status
             </h4>
 
             {signerLinks.map((item: SignerUrlItem, index: number) => (
               <div
-                key={`${item.identifier}-${index}`}
+                key={`${item.identifier || item.name}-${index}`}
                 className="rounded-2xl border border-slate-200 p-4"
               >
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -925,27 +1139,33 @@ export default function StepAgreement() {
                       {item.name || "Signer"}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {item.reason} • {item.identifier}
+                      {item.reason || "signer"} • {item.identifier || "no id"}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
-                      Status: {item.status || "requested"}
-                    </p>
+                    <div className="mt-2">
+                      <StatusBadge status={item.status || "requested"} />
+                    </div>
                   </div>
 
-                  <a
-                    href={item.authenticationUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Open Link
-                  </a>
+                  {item.authenticationUrl ? (
+                    <a
+                      href={item.authenticationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open Link
+                    </a>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            Signer status will appear here after agreement generation.
+          </div>
+        )}
       </SectionCard>
 
       <div className="flex items-center justify-between rounded-3xl border border-[#E3E8EF] bg-white p-5 shadow-sm">

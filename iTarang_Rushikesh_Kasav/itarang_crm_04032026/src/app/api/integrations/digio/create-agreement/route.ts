@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
-import { buildTarangDealerAgreementHtml } from "@/lib/agreement/tarangDealerAgreementTemplate";
+import { buildTarangDealerAgreementHtml } from "@/lib/agreement/dealer-agreement-template";
 
 type AgreementPayload = {
   company?: {
